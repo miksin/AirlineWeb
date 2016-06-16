@@ -1,0 +1,289 @@
+<?php
+    require_once 'config.php';
+    require_once 'check_page.php';
+    require_once 'functions.php';
+    session_start();
+    session_save_path("./session");
+?>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <!-- Bootstrap -->
+        <link href="bootstrap/css/bootstrap.min.css" rel="stylesheet" media="screen">
+        <script src="bootstrap/js/jquery-1.11.1.min.js"></script>
+        <script src="bootstrap/js/jquery.jeditable.mini.js"></script>
+        <script src="bootstrap/js/bootstrap.min.js"></script>
+        <style>
+            body {
+                margin-left: 10px;
+            }
+        </style>
+        <script> 
+        $(document).ready(function(){
+            <?php
+            if($_SESSION['login_message'] || $_SESSION['reg_message'])
+                echo "$('#signin').show();";
+            else
+                echo "$('#signin').hide();";
+            ?>
+            $("#sign_in").click(function(){
+                $("#signin").animate({
+                    height:'toggle'
+                },"slow");
+            });
+        });
+        $(document).ready(function(){
+            <?php
+            if($_SESSION['reg_message'])
+                echo "$('#signup').show();";
+            else
+                echo "$('#signup').hide();";
+            ?>
+            $("#sign_up").click(function(){
+                $("#signup").animate({
+                    height:'toggle'
+                },"slow");
+            });
+        });
+        <?php 
+            $username = if_login();
+            if($username === '_nologin_'){
+                echo "$(document).ready(function(){ $('#sign_in').show(); });"; 
+                echo "$(document).ready(function(){ $('#welcome').hide(); });"; 
+            }
+            else {
+                echo "$(document).ready(function(){ $('#sign_in').hide(); });"; 
+                echo "$(document).ready(function(){ $('#welcome').show(); });"; 
+            }
+        ?>
+        $(document).ready(function() {
+            $('.edit').editable('save.php', {
+                indicator : 'Saving...',
+                tooltip   : 'Click to edit...',
+                style     : 'inherit'
+            });
+        });
+        $(document).ready(function(){
+            $('#table1').dataTable( {
+                "order": [[ 0, 'desc' ], [ 1, 'asc' ]]
+            } )
+        });
+        </script> 
+    </head>
+    <title>Flight Schedule</title>
+    <body bgcolor="#EEEEEE">
+        <h1>Flight Schedule</h1><br>
+        <div class="row">
+            <div class="col-md-2"><h4><a id="sign_in">Sign in</a></h4></div>
+        </div>
+        
+        <div class="row" id="signin">
+            <div class="col-md-3">
+                <?php  
+                    echo "<font color='#FF0000'>".$_SESSION['login_message']."</font>";
+                    unset($_SESSION['login_message']);
+                ?>
+                <br><form name="form" method="post" action="signing.php">
+                    Account:<br><input type="text" name="email" value="<?php echo $_SESSION['input_email']; unset($_SESSION['input_email']);?>"/><br>
+                    password:<br><input type="password" name="pw" /><br><br>
+                    <button type="submit" class="btn btn-primary btn-xs" name="sign_in" value="Sign in" />OK</button><br><br>
+                    No account? <a id="sign_up">Sign up</a>
+                </form>
+            </div>
+            <div id="signup" class ="col-md-3">
+                <?php
+                    echo "<font color='#FF0000'>".$_SESSION['reg_message']."</font>";
+                    unset($_SESSION['reg_message']);
+                ?>
+                <br><form name="form" method="post" action="signup.php">
+                    Account:<br><input type="text" name="email" value='<?php echo $_SESSION['input_email']; unset($_SESSION['input_email']);?>'/><br>
+                    password:<br><input type="password" name="pw" /><br>
+                    password confirmation:<br><input type="password" name="pw_" /><br><br>
+                    <button type="submit" class="btn btn-success btn-xs" name="sign_up" value="Sign up" />Sign up</button><br><br>
+                </form>
+            </div>
+        </div>
+        <div id="welcome" class="row">
+            <ul class="nav nav-tabs">
+                <li class="dropdown active">
+                    <a class="dropdown-toggle" data-toggle="dropdown" href="#">
+                        <span class="glyphicon glyphicon-user"></span> <?php echo $username; ?> <span class="caret"></span>
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li class="disabled"><a tabindex="-1" href="#"><span class="glyphicon glyphicon-home"></span> Home</a></li>
+                        <li><a href="view_user.php"><span class="glyphicon glyphicon-user"></span> User management</a></li>
+                        <li><a href="view_airport.php"><span class="glyphicon glyphicon-map-marker"></span> Airport information</a></li>
+                        <li><a href="view_country.php"><span class="glyphicon glyphicon-globe"></span> Country management</a></li>
+                        <li class="divider"></li>
+                        <li><a href="logout.php">logout</a></li>
+                    </ul>
+                </li>
+                <li><a href="view_flight_admin.php"><span class="glyphicon glyphicon-plane"></span> Flight list</a></li>
+                <li><a href="cmpsheet.php"><span class="glyphicon glyphicon-sort-by-attributes-alt"></span> Compare</a></li>
+            </ul><br>
+        </div>
+        
+        <div id="searching_bar" class="row">
+            <?php
+                $sql = "SELECT airport.id AS airport_id,country.fullname AS country_name,airport.fullname AS airport_name".
+                       " FROM `country` JOIN `airport` ON airport.belonging_country_id = country.id".
+                       " ORDER BY country_name";
+                $find_CA1 = $db->prepare($sql);
+                $find_CA1->execute(array());
+                $find_CA2 = $db->prepare($sql);
+                $find_CA2->execute(array());
+            ?>
+            <div class="col-lg-12"><form method="post" action="index.php">
+                <select name="departure_airport" size="1">
+                    <option disabled>-----------------------------------------departure airport</option>
+                <?php
+                    $country_name = '';
+                    while($country_airport = $find_CA1->fetchObject()){
+                        if($country_airport->country_name != $country_name){
+                            echo "<option disabled>"."-- ".$country_airport->country_name."</option>";
+                            $country_name = $country_airport->country_name;
+                        }
+                        echo "<option value='".$country_airport->airport_id."'>".$country_airport->airport_name."</option>";
+                    }
+                ?>
+                </select>
+                <select name="destination_airport" size="1">
+                    <option disabled>-------------------------------------------arrival airport</option>
+                <?php
+                    $country_name = '';
+                    while($country_airport = $find_CA2->fetchObject()){
+                        if($country_airport->country_name != $country_name){
+                            echo "<option disabled>"."-- ".$country_airport->country_name."</option>";
+                            $country_name = $country_airport->country_name;
+                        }
+                        echo "<option value='".$country_airport->airport_id."'>".$country_airport->airport_name."</option>";
+                    }
+                ?>
+                </select>
+                <select name="transfer_times" size="1">
+                    <option disabled>--transfer times</option>
+                    <option value="0"> 0</option>
+                    <option value="1"> 1</option>
+                    <option value="2"> 2</option>
+                </select>
+                <select name="ticket_orderby" size="1">
+                    <option disabled>--order by</option>
+                    <option value="0"> price</option>
+                    <option value="1"> arrival time</option>
+                    <option value="2"> transfer time</option>
+                </select>
+                <button name='search_OK' class="btn btn-default btn-sm" type="submit" value='search_OK'><span class="glyphicon glyphicon-search"></span></button>
+            </form></div>
+            </div>
+        </div>
+
+        
+        <div id="search_result" class="row">
+            <?php
+                if(!is_numeric($_POST['ticket_orderby']) ||
+                   !is_numeric($_POST['transfer_times']) || 
+                   !is_numeric($_POST['departure_airport']) || 
+                   !is_numeric($_POST['destination_airport'])){
+                    unset($_POST['departure_airport']);
+                    unset($_POST['destination_airport']);
+                    unset($_POST['ticket_orderby']);
+                    unset($_POST['transfer_times']);
+                }
+                $orderby = array('price','arrival_time','transfer_time');
+//                echo $_POST['departure_airport'].$_POST['destination_airport'].$orderby[$_POST['ticket_orderby']].$_POST['transfer_times'];
+                $sql = transferSQL($_POST['transfer_times']);
+                
+                $result_count = 1;
+                $sth = $db->prepare($sql);
+                $ggg = $sth->execute(array(
+                            ':did' => $_POST['departure_airport'],
+                            ':aid' => $_POST['destination_airport'],
+                            ':orb' => $orderby[$_POST['ticket_orderby']]
+                            ));
+
+                echo "<table class='table table-hover table-condensed' table-bordered><tr class='info'>";
+                echo "<td width='40' >result</td>";
+                echo "<td width='1110'><table><tr>";
+                echo "<td width='150'>Flight number</td>";
+                echo "<td width='180'>Departure airport</td>";
+                echo "<td width='180'>Destination airport</td>";            
+                echo "<td width='250'>Departure time</td>";
+                echo "<td width='250'>Arrival time</td>";            
+                echo "<td width='100'>Flight time</td>";
+                echo "</tr></table></td>";
+                echo "<td width='100'>Total time</td>";
+                echo "<td width='110'>Transfer time</td>";
+                echo "<td >Price</td>";
+                echo "</tr>";
+                while($result = $sth->fetchObject()){
+                    $sql1 = "SELECT flight.flight_number AS flight_number, ".
+                            "Departure_airport.abbreviation AS departure_airport, ".
+                            "Destination_airport.abbreviation AS destination_airport, ".
+                            "flight.departure_date AS departure_time, ".
+                            "flight.arrival_date AS destination_time, ".
+                            "ADDTIME(TIMEDIFF(flight.arrival_date,flight.departure_date),TIMEDIFF(Departure_airport.timezone,Destination_airport.timezone)) AS flight_time ".
+                            "FROM flight, airport AS Departure_airport, airport AS Destination_airport ".
+                            "WHERE Departure_airport.id = flight.departure_id AND Destination_airport.id = flight.destination_id ".
+                            "AND flight.id = :id";
+                    $find_flight1 = $db->prepare($sql1);
+                    $find_flight1->execute(array(':id' => $result->flight_number1));
+                    $flight1 = $find_flight1->fetchObject();
+                    if($result->flight_number2){
+                        $find_flight2 = $db->prepare($sql1);
+                        $find_flight2->execute(array(':id' => $result->flight_number2));
+                        $flight2 = $find_flight2->fetchObject();
+                    }
+
+                    if($result->flight_number3){
+                        $find_flight3 = $db->prepare($sql1);
+                        $find_flight3->execute(array(':id' => $result->flight_number3));
+                        $flight3 = $find_flight3->fetchObject();
+                    }
+                    
+                    echo "<tr>";
+                    echo "<td width='40' >".$result_count."</td>";
+                    echo "<td width='1110'><table class='table table-hover table-hover table-condensed table-bordered'><tr>";
+                    echo "<td width='150'>".$flight1->flight_number."</td>";
+                    echo "<td width='180'>".$flight1->departure_airport."</td>";
+                    echo "<td width='180'>".$flight1->destination_airport."</td>";
+                    echo "<td width='250'>".$flight1->departure_time."</td>";
+                    echo "<td width='250'>".$flight1->destination_time."</td>";
+                    echo "<td width='100'>".$flight1->flight_time."</td>";
+                    echo "</tr>";
+                    if($result->flight_number2){
+                        echo "<tr>";
+                        echo "<td width='150'>".$flight2->flight_number."</td>";
+                        echo "<td width='180'>".$flight2->departure_airport."</td>";
+                        echo "<td width='180'>".$flight2->destination_airport."</td>";
+                        echo "<td width='250'>".$flight2->departure_time."</td>";
+                        echo "<td width='250'>".$flight2->destination_time."</td>";
+                        echo "<td width='100'>".$flight2->flight_time."</td>";
+                        echo "</tr>";
+                    }
+                    if($result->flight_number3){
+                        echo "<tr>";
+                        echo "<td width='150'>".$flight3->flight_number."</td>";
+                        echo "<td width='180'>".$flight3->departure_airport."</td>";
+                        echo "<td width='180'>".$flight3->destination_airport."</td>";
+                        echo "<td width='250'>".$flight3->departure_time."</td>";
+                        echo "<td width='250'>".$flight3->destination_time."</td>";
+                        echo "<td width='100'>".$flight3->flight_time."</td>";
+                        echo "</tr>";
+                    }
+                    echo "</table></td>";
+                    echo "<td width='100'>".$result->flight_time."</td>";
+                    echo "<td width='110'>".$result->transfer_time."</td>";
+                    echo "<td >".(int)$result->price."</td>";
+                    echo "</tr>";
+
+                    $result_count = $result_count + 1;
+                }
+                echo "</table>";
+            ?>
+        </div>
+    </body>
+</html>
+
+
+
+
